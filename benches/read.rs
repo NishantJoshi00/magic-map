@@ -40,13 +40,9 @@ fn bench_magic_map(c: &mut Criterion) {
         .create(new_data(500))
         .expect("failed to create data");
 
-    let iter = 10000;
-
     c.bench_function("read", |b| {
         b.iter(|| {
-            for _i in 0..iter {
-                mmap.clone().read(|_d| Ok(())).expect("read failed");
-            }
+            mmap.clone().read(|_d| Ok(())).expect("read failed");
         })
     });
 }
