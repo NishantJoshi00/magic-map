@@ -1,3 +1,10 @@
+//!
+//! # Magic Map
+//!
+//!
+//!
+//!
+
 use mmap_sync::guard::ReadResult;
 use mmap_sync::synchronizer::Synchronizer;
 use rkyv::ser::serializers::AllocSerializer;
@@ -57,8 +64,11 @@ impl<T: Archive> MagicMap<T> {
     }
 
     ///
-    /// This function exposes a pure write operation. It takes a data of type [`T`] and writes it
+    /// Exposes a pure write operation. It takes a data of type [`T`] and writes it
     /// to the underlying file. This will overwrite the existing data in the file.
+    ///
+    /// This uses the `mmap` syscall to sync the file to persistant storage which reduces the overhead of the
+    /// operation while still keeping the write lightweight
     ///
     pub fn create(self, data: T) -> Result<(), MagicMapError>
     where
@@ -71,9 +81,7 @@ impl<T: Archive> MagicMap<T> {
             Ok(mut guard) => {
                 let output = guard.write(&data, Duration::from_secs(5));
 
-                output
-                    .map(|_| ())
-                    .map_err(|_| MagicMapError::LockWriterError)
+                output.map(|_| ()).map_err(|_| MagicMapError::WriteFailure)
             }
             Err(_e) => Err(MagicMapError::LockWriterError),
         }
@@ -111,7 +119,7 @@ impl<T: Archive> MagicMap<T> {
 
                         let output: T = inner_data
                             .deserialize(&mut rkyv::Infallible)
-                            .map_err(|_| MagicMapError::ReadDataError)?;
+                            .map_err(|_| MagicMapError::DeserializationError)?;
 
                         drop(data);
 
@@ -174,7 +182,7 @@ impl<T: Archive> MagicMap<T> {
             let data: &Archived<T> = data.deref();
             let output: T = data
                 .deserialize(&mut rkyv::Infallible)
-                .map_err(|_| MagicMapError::ReadDataError)?;
+                .map_err(|_| MagicMapError::DeserializationError)?;
 
             Ok(output)
         })
@@ -187,6 +195,10 @@ pub enum MagicMapError {
     LockWriterError,
     #[error("Failed to read data")]
     ReadDataError,
+    #[error("Failed to write via synchronizer")]
+    WriteFailure,
+    #[error("Failed while deserializing memory")]
+    DeserializationError,
 }
 
 pub trait Fallback<T> {
