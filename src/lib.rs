@@ -48,7 +48,20 @@ impl<T: Archive> Clone for MagicMap<T> {
     }
 }
 
-impl<T: Archive> MagicMap<T> {
+impl<T> MagicMap<T>
+where
+    T: Archive
+        + rkyv::Serialize<
+            rkyv::ser::serializers::CompositeSerializer<
+                rkyv::ser::serializers::AlignedSerializer<rkyv::AlignedVec>,
+                rkyv::ser::serializers::FallbackScratch<
+                    rkyv::ser::serializers::HeapScratch<1024>,
+                    rkyv::ser::serializers::AllocScratch,
+                >,
+                rkyv::ser::serializers::SharedSerializeMap,
+            >,
+        >,
+{
     ///
     /// Creating a instance of [`MagicMap`] with a file path. The file path is then mapped to
     /// memory and used to read and write data. The file is created if it doesn't exist.
